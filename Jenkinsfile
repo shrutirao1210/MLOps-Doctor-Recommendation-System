@@ -25,34 +25,41 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker images..."
-                    sh "/Applications/Docker.app/Contents/Resources/bin/docker build -t ${BANDIT_IMAGE}:latest ./main1"
-                    sh "/Applications/Docker.app/Contents/Resources/bin/docker build -t ${SPECIALITY_IMAGE}:latest ./main2"
-                    sh "/Applications/Docker.app/Contents/Resources/bin/docker build -t ${FRONTEND_IMAGE}:latest ."
+
+                    sh "docker build -t ${BANDIT_IMAGE}:latest ./main1"
+                    sh "docker build -t ${SPECIALITY_IMAGE}:latest ./main2"
+                    sh "docker build -t ${FRONTEND_IMAGE}:latest ."
                 }
             }
         }
 
         stage('Push Docker Images to DockerHub') {
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
-                                          usernameVariable: 'DOCKER_USER',
-                                          passwordVariable: 'DOCKER_PASS')]) {
-            sh '''
-                echo "$DOCKER_PASS" | /Applications/Docker.app/Contents/Resources/bin/docker login -u "$DOCKER_USER" --password-stdin
-                /Applications/Docker.app/Contents/Resources/bin/docker push shrutimrao/bandit:latest
-                /Applications/Docker.app/Contents/Resources/bin/docker push shrutimrao/speciality:latest
-                /Applications/Docker.app/Contents/Resources/bin/docker push shrutimrao/frontend:latest
-            '''
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+                        docker push shrutimrao/bandit:latest
+                        docker push shrutimrao/speciality:latest
+                        docker push shrutimrao/frontend:latest
+                    '''
+                }
+            }
         }
-    }
-}
 
         stage('Load Images into Minikube') {
             steps {
                 sh """
-                    /opt/homebrew/bin/minikube image load ${BANDIT_IMAGE}:latest
-                    /opt/homebrew/bin/minikube image load ${SPECIALITY_IMAGE}:latest
-                    /opt/homebrew/bin/minikube image load ${FRONTEND_IMAGE}:latest
+                    minikube image load ${BANDIT_IMAGE}:latest
+                    minikube image load ${SPECIALITY_IMAGE}:latest
+                    minikube image load ${FRONTEND_IMAGE}:latest
                 """
             }
         }
@@ -70,7 +77,12 @@ pipeline {
     }
 
     post {
-        success { echo "Deployment successful!" }
-        failure { echo "Deployment failed. Check logs above." }
+        success {
+            echo "Deployment successful!"
+        }
+
+        failure {
+            echo "Deployment failed. Check logs above."
+        }
     }
 }
